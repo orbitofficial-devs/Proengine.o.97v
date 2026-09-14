@@ -1,0 +1,213 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <title>Math Engine</title>
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <style>
+    * { box-sizing: border-box; margin: 0; padding: 0; }
+    body {
+      font-family: 'Segoe UI', Arial, sans-serif;
+      background: #0f172a; color: #e2e8f0;
+      min-height: 100vh; padding: 30px 20px;
+    }
+    .container { max-width: 900px; margin: 0 auto; }
+    h1 { text-align: center; font-size: 32px; margin-bottom: 8px; }
+    .subtitle { text-align: center; color: #94a3b8; margin-bottom: 30px; }
+    .tabs { display: flex; flex-wrap: wrap; gap: 8px; margin-bottom: 20px; }
+    .tab {
+      padding: 10px 16px; background: #1e293b; border-radius: 8px;
+      cursor: pointer; font-size: 14px; transition: 0.2s;
+      border: 1px solid transparent;
+    }
+    .tab:hover { background: #334155; }
+    .tab.active { background: #3b82f6; color: white; border-color: #60a5fa; }
+    .card {
+      background: #1e293b; padding: 25px; border-radius: 14px;
+      box-shadow: 0 10px 40px rgba(0,0,0,0.4);
+    }
+    label { display: block; font-size: 13px; color: #94a3b8;
+            margin-bottom: 6px; margin-top: 12px; }
+    input, textarea {
+      width: 100%; padding: 12px; background: #0f172a;
+      border: 1px solid #334155; border-radius: 8px;
+      color: #e2e8f0; font-size: 15px;
+      font-family: 'Courier New', monospace;
+    }
+    input:focus, textarea:focus {
+      outline: none; border-color: #3b82f6;
+    }
+    button {
+      margin-top: 20px; padding: 14px 24px;
+      background: #3b82f6; color: white; border: none;
+      border-radius: 8px; cursor: pointer;
+      font-size: 15px; font-weight: 600;
+    }
+    button:hover { background: #2563eb; }
+    .row { display: flex; gap: 12px; }
+    .row > div { flex: 1; }
+    .result {
+      margin-top: 25px; padding: 20px;
+      background: #0f172a; border-radius: 10px;
+      border-left: 4px solid #3b82f6;
+      font-family: 'Courier New', monospace;
+      font-size: 14px; white-space: pre-wrap;
+      display: none;
+    }
+    .result.show { display: block; }
+    .result.error { border-left-color: #ef4444; color: #fca5a5; }
+    .hint { font-size: 12px; color: #64748b; margin-top: 4px; }
+  </style>
+</head>
+<body>
+  <div class="container">
+    <h1>🧮 Math Engine</h1>
+    <p class="subtitle">Symbolic calculus • Algebra • Linear algebra • Number theory</p>
+
+    <div class="tabs" id="tabs">
+      <div class="tab active" data-op="simplify">Simplify</div>
+      <div class="tab" data-op="expand">Expand</div>
+      <div class="tab" data-op="factor">Factor</div>
+      <div class="tab" data-op="derivative">Derivative</div>
+      <div class="tab" data-op="integrate">Integral</div>
+      <div class="tab" data-op="limit">Limit</div>
+      <div class="tab" data-op="series">Series</div>
+      <div class="tab" data-op="solve">Solve</div>
+      <div class="tab" data-op="det">Determinant</div>
+      <div class="tab" data-op="eigen">Eigen</div>
+      <div class="tab" data-op="is_prime">Is prime</div>
+      <div class="tab" data-op="factorize">Factorize</div>
+      <div class="tab" data-op="fibonacci">Fibonacci</div>
+      <div class="tab" data-op="stats">Stats</div>
+    </div>
+
+    <div class="card" id="form"></div>
+    <div class="result" id="result"></div>
+  </div>
+
+  <script>
+    let currentOp = 'simplify';
+
+    const forms = {
+      simplify: [
+        { id: 'expression', label: 'Expression', placeholder: 'e.g. sin(x)**2 + cos(x)**2', type: 'text' },
+      ],
+      expand: [
+        { id: 'expression', label: 'Expression', placeholder: 'e.g. (x + 1)**3', type: 'text' },
+      ],
+      factor: [
+        { id: 'expression', label: 'Expression', placeholder: 'e.g. x**2 - 1', type: 'text' },
+      ],
+      derivative: [
+        { id: 'expression', label: 'Expression', placeholder: 'e.g. x**3 * sin(x)', type: 'text' },
+        { id: 'order', label: 'Order', placeholder: '1', type: 'number', default: 1 },
+      ],
+      integrate: [
+        { id: 'expression', label: 'Expression', placeholder: 'e.g. x**2', type: 'text' },
+        { id: 'lower', label: 'Lower bound (optional)', placeholder: 'e.g. 0', type: 'text' },
+        { id: 'upper', label: 'Upper bound (optional)', placeholder: 'e.g. 1', type: 'text' },
+      ],
+      limit: [
+        { id: 'expression', label: 'Expression', placeholder: 'e.g. sin(x)/x', type: 'text' },
+        { id: 'point', label: 'Approach', placeholder: 'e.g. 0 or oo', type: 'text', default: '0' },
+      ],
+      series: [
+        { id: 'expression', label: 'Expression', placeholder: 'e.g. exp(x)', type: 'text' },
+        { id: 'point', label: 'Point', placeholder: '0', type: 'text', default: '0' },
+        { id: 'order', label: 'Order', placeholder: '6', type: 'number', default: 6 },
+      ],
+      solve: [
+        { id: 'equation', label: 'Equation', placeholder: 'e.g. x**2 - 4 = 0', type: 'text' },
+        { id: 'variable', label: 'Variable', placeholder: 'x', type: 'text', default: 'x' },
+      ],
+      det: [
+        { id: 'matrix', label: 'Matrix (rows on separate lines, comma-separated)', placeholder: '1, 2\n3, 4', type: 'textarea' },
+      ],
+      eigen: [
+        { id: 'matrix', label: 'Matrix (rows on separate lines, comma-separated)', placeholder: '2, 0\n0, 3', type: 'textarea' },
+      ],
+      is_prime: [
+        { id: 'n', label: 'Number', placeholder: '97', type: 'number' },
+      ],
+      factorize: [
+        { id: 'n', label: 'Number', placeholder: '360', type: 'number' },
+      ],
+      fibonacci: [
+        { id: 'n', label: 'n', placeholder: '20', type: 'number' },
+      ],
+      stats: [
+        { id: 'data', label: 'Numbers (comma-separated)', placeholder: '1, 2, 3, 4, 5', type: 'text' },
+      ],
+    };
+
+    function renderForm() {
+      const fields = forms[currentOp];
+      const form = document.getElementById('form');
+      form.innerHTML = fields.map(f => `
+        <label>${f.label}</label>
+        ${f.type === 'textarea'
+          ? `<textarea id="${f.id}" placeholder="${f.placeholder}" rows="4"></textarea>`
+          : `<input id="${f.id}" type="${f.type}" placeholder="${f.placeholder}" value="${f.default ?? ''}" />`}
+      `).join('') + `<button onclick="run()">Calculate</button>`;
+    }
+
+    document.querySelectorAll('.tab').forEach(tab => {
+      tab.addEventListener('click', () => {
+        document.querySelectorAll('.tab').forEach(t => t.classList.remove('active'));
+        tab.classList.add('active');
+        currentOp = tab.dataset.op;
+        renderForm();
+        document.getElementById('result').classList.remove('show');
+      });
+    });
+
+    function buildPayload() {
+      const payload = {};
+      for (const f of forms[currentOp]) {
+        const el = document.getElementById(f.id);
+        if (!el) continue;
+        let val = el.value.trim();
+        if (f.type === 'number') val = Number(val);
+        if (f.id === 'matrix') {
+          val = val.split('\n').filter(r => r.trim())
+                   .map(r => r.split(',').map(x => x.trim()));
+        }
+        if (f.id === 'data') {
+          val = val.split(',').map(x => x.trim());
+        }
+        payload[f.id] = val;
+      }
+      return payload;
+    }
+
+    async function run() {
+      const box = document.getElementById('result');
+      box.classList.remove('error');
+      box.classList.add('show');
+      box.textContent = 'Calculating...';
+
+      try {
+        const res = await fetch(`/api/${currentOp}`, {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify(buildPayload()),
+        });
+        const json = await res.json();
+
+        if (!json.ok) {
+          box.classList.add('error');
+          box.textContent = 'Error: ' + json.error;
+          return;
+        }
+
+        box.textContent = JSON.stringify(json.data, null, 2);
+      } catch (err) {
+        box.classList.add('error');
+        box.textContent = 'Network error: ' + err.message;
+      }
+    }
+
+    renderForm();
+  </script>
+</body>
+</html>
